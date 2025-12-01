@@ -5,7 +5,7 @@ services:
         restart: unless-stopped
         tty: true
         depends_on:
-            - laravel-app
+            - php-app
         environment:
             NGINX_HOST: "${APP_HOST}"
         networks:
@@ -16,7 +16,7 @@ services:
             - ./docker/local/nginx.conf:/etc/nginx/conf.d/default.conf
             - .:/var/www
     
-    laravel-app:
+    php-app:
         build:
             context: ./docker/local
             dockerfile: Dockerfile
