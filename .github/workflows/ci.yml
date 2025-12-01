@@ -74,7 +74,7 @@ jobs:
         run: |
           echo "$DEPLOY_SSH_KEY" > ./deploy/ssh_deploy_key
           chmod 600 ./deploy/ssh_deploy_key
-          rsync -chrutz --stats \
+          rsync -chrutz --stats --rsync-path="sudo rsync" \
             -e 'ssh -i ./deploy/ssh_deploy_key -p 22 -o StrictHostKeyChecking=no' \
             --chown=www-data:www-data \
             --exclude='deploy/' \
