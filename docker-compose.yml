@@ -1,0 +1,81 @@
+services:
+
+    webserver:
+        image: nginx:alpine
+        restart: unless-stopped
+        tty: true
+        depends_on:
+            - laravel-app
+        environment:
+            NGINX_HOST: "${APP_HOST}"
+        networks:
+            - leads
+        ports:
+            - "${FORWARD_PORT:-80}:80"
+        volumes:
+            - ./docker/local/nginx.conf:/etc/nginx/conf.d/default.conf
+            - .:/var/www
+    
+    laravel-app:
+        build:
+            context: ./docker/local
+            dockerfile: Dockerfile
+        image: test-leads/app
+        restart: unless-stopped
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - leads
+        depends_on:
+            - mariadb
+            - redis
+
+    mariadb:
+        image: 'mariadb:12'
+        restart: always
+        ports:
+            - '${FORWARD_DB_PORT:-3306}:3306'
+        environment:
+            MARIADB_ROOT_PASSWORD: '${MARIADB_ROOT_PASSWORD:-secret}'
+            MARIADB_DATABASE: '${DB_DATABASE}'
+            MARIADB_USER: '${DB_USERNAME}'
+            MARIADB_PASSWORD: '${DB_PASSWORD:-secret}'
+        volumes:
+            - 'mariadb-volume:/var/lib/mysql'
+        networks:
+            - leads
+        healthcheck:
+            test:
+                - CMD
+                - healthcheck.sh
+                - '--connect'
+                - '--innodb_initialized'
+            retries: 3
+            timeout: 5s
+
+    redis:
+        image: 'redis:alpine'
+        restart: always
+        ports:
+            - '${FORWARD_REDIS_PORT:-6379}:6379'
+        volumes:
+            - 'redis-volume:/data'
+        networks:
+            - leads
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+            retries: 3
+            timeout: 5s
+
+networks:
+    leads:
+        driver: bridge
+
+volumes:
+    mariadb-volume:
+        driver: local
+    redis-volume:
+        driver: local

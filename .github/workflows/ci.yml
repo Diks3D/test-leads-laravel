@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+
+env:
+  IMAGE_NAME: "test_leads"
+  BRANCH: ${{ github.ref_name }}
+
+jobs:
+  build_push_deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+
+      - name: Set ENV vars depending on event
+        run: |
+          if [[ "${{ env.BRANCH }}" == 'master' ]]; then
+            ALLOWED_USER="Diks3D"
+            AUTHOR="${{ github.actor }}"
+            if [[ " ${ALLOWED_USER} " == " ${AUTHOR} " ]]; then
+              echo "ENV_TYPE=prod" >> $GITHUB_ENV
+              echo "ENV_TYPE_UPPER=PROD" >> $GITHUB_ENV
+            else
+              echo "You are not authorized to deploy Production."
+              exit 1
+            fi
+          else
+            echo "ENV_TYPE=dev" >> $GITHUB_ENV
+            echo "ENV_TYPE_UPPER=DEV" >> $GITHUB_ENV
+          fi
+
+      - name: Show INVENTORY vars
+        run: |
+          echo "BRANCH is ${{ env.BRANCH }}"
+          echo "ENV_TYPE is ${{ env.ENV_TYPE }}"
+
+      - name: Getting token for Vault and create Ansible key
+        run: |
+          echo "${{ secrets[format('ANSIBLE_{0}_KEY', env.ENV_TYPE_UPPER)] }}" > deploy/${ENV_TYPE}/${ENV_TYPE}.key
+
+      - name: Create .env and docker-compose.yml files
+        run: |
+          cd deploy/${ENV_TYPE}
+          ansible-vault view --vault-id ${ENV_TYPE}@${ENV_TYPE}.key .env.${ENV_TYPE} > ../.env
+          ansible-vault view --vault-id ${ENV_TYPE}@${ENV_TYPE}.key github_env.${ENV_TYPE} >> $GITHUB_ENV
+          cp -pfv docker-compose.yml.${ENV_TYPE} ../../docker-compose.yml
+
+      - name: Swithc php-app to maintenance mode and stop supervisor
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_SSH_USER }}
+          key: ${{ env.DEPLOY_SSH_KEY }}
+          port: 22
+          script: |
+            cd "/opt/${{ env.IMAGE_NAME }}"
+            if [[ $(docker ps | grep 'test-leads.app.*\sUp\s.*php-app' | wc -l) -ne 0 ]]; then
+              docker compose exec php-app ./artisan down --refresh=90 --retry=30
+            fi
+            if [[ $(docker ps | grep 'test-leads.app.*\sUp\s.*supervisor' | wc -l) -ne 0 ]]; then
+              docker compose stop supervisor
+            fi
+          
+      - name: Upload new files to server
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          echo "$DEPLOY_SSH_KEY" > ./deploy/ssh_deploy_key
+          chmod 600 ./deploy/ssh_deploy_key
+          rsync -chrutz --stats \
+            -e 'ssh -i ./deploy/ssh_deploy_key -p 22 -o StrictHostKeyChecking=no' \
+            --chown=www-data:www-data \
+            --exclude='deploy/' \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            ./ ${DEPLOY_SSH_USER}@${DEPLOY_HOST}:/opt/${IMAGE_NAME}/
+
+      - name: Build docker php-app image, migrate and up application
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_SSH_USER }}
+          key: ${{ env.DEPLOY_SSH_KEY }}
+          port: 22
+          script: |
+            cd /opt/${{ env.IMAGE_NAME }}
+            docker compose up -d --build --remove-orphans
+            if [[ "${{ env.BRANCH }}" == 'master' ]]; then
+              docker compose exec php-app ash -c "composer update --no-cache --no-dev -o && php artisan optimize && php artisan migrate --force"
+            else
+              docker compose exec php-app ash -c "composer update --no-cache -o && php artisan migrate"
+            fi
+            docker compose exec php-app ./artisan up
+            docker compose up -d supervisor
+
+      - name: Cleanup Github workspace
+        run: find $GITHUB_WORKSPACE -mindepth 1 -delete

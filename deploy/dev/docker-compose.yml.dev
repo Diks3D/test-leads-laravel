@@ -1,0 +1,98 @@
+services:
+
+    webserver:
+        image: nginx:alpine
+        restart: unless-stopped
+        tty: true
+        depends_on:
+            - php-app
+        environment:
+            NGINX_HOST: "${APP_HOST}"
+        ports:
+            - "${FORWARD_PORT:-80}:80"
+        volumes:
+            - ./docker/dev/nginx.conf:/etc/nginx/conf.d/default.conf
+            - .:/var/www
+        networks:
+            - leads
+
+    php-app:
+        build:
+            context: ./docker/dev
+            dockerfile: Dockerfile
+        image: test-leads.app.dev
+        container_name: php-app
+        depends_on:
+            - mariadb
+            - redis
+        restart: unless-stopped
+        volumes:
+            - .:/var/www/html
+        networks:
+            - leads
+
+    supervisor:
+        container_name: supervisor
+        image: test-leads.app.dev
+        restart: unless-stopped
+        profiles:
+            - donotstart
+        depends_on:
+            - mariadb
+            - redis
+        user: root:root
+        command: /usr/bin/supervisord -n
+        volumes:
+            - .:/var/www/html
+        networks:
+            - leads
+    
+    mariadb:
+        image: 'mariadb:12'
+        restart: always
+        ports:
+            - '127.0.0.1:${FORWARD_DB_PORT:-3306}:3306'
+        environment:
+            MARIADB_ROOT_PASSWORD: '${MARIADB_ROOT_PASSWORD:-secret}'
+            MARIADB_DATABASE: '${DB_DATABASE}'
+            MARIADB_USER: '${DB_USERNAME}'
+            MARIADB_PASSWORD: '${DB_PASSWORD:-secret}'
+        volumes:
+            - 'mariadb-volume:/var/lib/mysql'
+        networks:
+            - leads
+        healthcheck:
+            test:
+                - CMD
+                - healthcheck.sh
+                - '--connect'
+                - '--innodb_initialized'
+            retries: 3
+            timeout: 5s
+
+    redis:
+        image: 'redis:alpine'
+        restart: always
+        ports:
+            - '127.0.0.1:${FORWARD_REDIS_PORT:-6379}:6379'
+        volumes:
+            - 'redis-volume:/data'
+        networks:
+            - leads
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+            retries: 3
+            timeout: 5s
+
+volumes:
+    mariadb-volume:
+        driver: local
+    redis-volume:
+        driver: local
+
+networks:
+    leads:
+        driver: bridge
