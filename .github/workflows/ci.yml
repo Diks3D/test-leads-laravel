@@ -102,5 +102,8 @@ jobs:
             docker compose exec php-app ./artisan up
             docker compose up -d supervisor
 
+      - name: Cleanup Docker on runner
+        run: docker system prune -f --filter=until=48h
+
       - name: Cleanup Github workspace
         run: find $GITHUB_WORKSPACE -mindepth 1 -delete
