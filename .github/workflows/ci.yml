@@ -62,7 +62,7 @@ jobs:
           script: |
             cd "/opt/${{ env.IMAGE_NAME }}"
             if [[ $(docker ps | grep 'test-leads.app.*\sUp\s.*php-app' | wc -l) -ne 0 ]]; then
-              docker compose exec php-app ./artisan down --refresh=90 --retry=30
+              docker compose exec php-app php artisan down --refresh=90 --retry=30
             fi
             if [[ $(docker ps | grep 'test-leads.app.*\sUp\s.*supervisor' | wc -l) -ne 0 ]]; then
               docker compose stop supervisor
@@ -99,7 +99,7 @@ jobs:
             else
               docker compose exec php-app ash -c "composer update --no-cache -o && php artisan migrate"
             fi
-            docker compose exec php-app ./artisan up
+            docker compose exec php-app php artisan up
             docker compose up -d supervisor
 
       - name: Cleanup Docker on runner
