@@ -47,7 +47,7 @@ jobs:
         run: |
           cd deploy/${ENV_TYPE}
           ansible-vault view --vault-id ${ENV_TYPE}@${ENV_TYPE}.key github_env >> $GITHUB_ENV
-          ansible-vault view --vault-id ${ENV_TYPE}@${ENV_TYPE}.key .env > ../../.env
+          ansible-vault view --vault-id ${ENV_TYPE}@${ENV_TYPE}.key app_env > ../../.env
           cp -pfv docker-compose.yml ../../docker-compose.yml
 
       - name: Swithc php-app to maintenance mode and stop supervisor
