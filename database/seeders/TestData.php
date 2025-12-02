@@ -10,7 +10,7 @@ use Illuminate\Database\Seeder;
 class TestData extends Seeder
 {
     /**
-     * Seed the application's test data to DB.
+     * Seed the application's test data to DB. (Not work on production!)
      */
     public function run(): void
     {
