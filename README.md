@@ -35,3 +35,10 @@
     docker compose exec php-app php artisan db:seed TestUser
 
 Сервер должен запуститься, чтобы проверить переходим [link](http://test-leads.lo/up)
+
+
+После заполнения БД тестовыми данными доступна авторизация по адресу:
+
+    POST http://test-leads.lo/api/login
+    FORM_DATA:
+    email, password
