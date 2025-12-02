@@ -46,9 +46,9 @@ jobs:
       - name: Create .env and docker-compose.yml files
         run: |
           cd deploy/${ENV_TYPE}
-          ansible-vault view --vault-id ${ENV_TYPE}@${ENV_TYPE}.key .env.${ENV_TYPE} > ../.env
-          ansible-vault view --vault-id ${ENV_TYPE}@${ENV_TYPE}.key github_env.${ENV_TYPE} >> $GITHUB_ENV
-          cp -pfv docker-compose.yml.${ENV_TYPE} ../../docker-compose.yml
+          ansible-vault view --vault-id ${ENV_TYPE}@${ENV_TYPE}.key github_env >> $GITHUB_ENV
+          ansible-vault view --vault-id ${ENV_TYPE}@${ENV_TYPE}.key app_env > ../../.env
+          cp -pfv docker-compose.yml ../../docker-compose.yml
 
       - name: Swithc php-app to maintenance mode and stop supervisor
         uses: appleboy/ssh-action@v1
@@ -62,7 +62,7 @@ jobs:
           script: |
             cd "/opt/${{ env.IMAGE_NAME }}"
             if [[ $(docker ps | grep 'test-leads.app.*\sUp\s.*php-app' | wc -l) -ne 0 ]]; then
-              docker compose exec php-app ./artisan down --refresh=90 --retry=30
+              docker compose exec php-app php artisan down --refresh=90 --retry=30
             fi
             if [[ $(docker ps | grep 'test-leads.app.*\sUp\s.*supervisor' | wc -l) -ne 0 ]]; then
               docker compose stop supervisor
@@ -99,7 +99,7 @@ jobs:
             else
               docker compose exec php-app ash -c "composer update --no-cache -o && php artisan migrate"
             fi
-            docker compose exec php-app ./artisan up
+            docker compose exec php-app php artisan up
             docker compose up -d supervisor
 
       - name: Cleanup Docker on runner
