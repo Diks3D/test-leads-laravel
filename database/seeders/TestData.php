@@ -17,6 +17,7 @@ class TestData extends Seeder
         $user = User::factory()->create([
             'name' => 'Test Developer',
             'email' => 'dev@test-leads.su',
+            'password' => 'developer',
         ]);
 
         $category1 = Category::create([
