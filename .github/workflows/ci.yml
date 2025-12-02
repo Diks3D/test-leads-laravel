@@ -74,7 +74,7 @@ jobs:
         run: |
           echo "$DEPLOY_SSH_KEY" > ./deploy/ssh_deploy_key
           chmod 600 ./deploy/ssh_deploy_key
-          rsync -chrutz --stats \
+          rsync -chrutz --stats --rsync-path="sudo rsync" \
             -e 'ssh -i ./deploy/ssh_deploy_key -p 22 -o StrictHostKeyChecking=no' \
             --chown=www-data:www-data \
             --exclude='deploy/' \
@@ -101,6 +101,9 @@ jobs:
             fi
             docker compose exec php-app ./artisan up
             docker compose up -d supervisor
+
+      - name: Cleanup Docker on runner
+        run: docker system prune -f --filter=until=48h
 
       - name: Cleanup Github workspace
         run: find $GITHUB_WORKSPACE -mindepth 1 -delete

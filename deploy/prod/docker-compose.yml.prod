@@ -23,16 +23,21 @@ services:
         container_name: php-app
         image: test-leads.app
         restart: unless-stopped
+        depends_on:
+            - mariadb
+            - redis
         volumes:
             - .:/var/www/html
         networks:
             - leads
-            - db-stack
 
     supervisor:
         container_name: supervisor
         image: axiora.back.app
         restart: unless-stopped
+        depends_on:
+            - mariadb
+            - redis
         profiles:
             - donotstart
         user: root:root
@@ -41,11 +46,54 @@ services:
             - .:/var/www/html
         networks:
             - leads
-            - db-stack
+
+    mariadb:
+        image: 'mariadb:12'
+        restart: always
+        ports:
+            - '127.0.0.1:${FORWARD_DB_PORT:-3306}:3306'
+        environment:
+            MARIADB_ROOT_PASSWORD: '${MARIADB_ROOT_PASSWORD:-secret}'
+            MARIADB_DATABASE: '${DB_DATABASE}'
+            MARIADB_USER: '${DB_USERNAME}'
+            MARIADB_PASSWORD: '${DB_PASSWORD:-secret}'
+        volumes:
+            - 'mariadb-volume:/var/lib/mysql'
+        networks:
+            - leads
+        healthcheck:
+            test:
+                - CMD
+                - healthcheck.sh
+                - '--connect'
+                - '--innodb_initialized'
+            retries: 3
+            timeout: 5s
+
+    redis:
+        image: 'redis:alpine'
+        restart: always
+        ports:
+            - '127.0.0.1:${FORWARD_REDIS_PORT:-6379}:6379'
+        volumes:
+            - 'redis-volume:/data'
+        networks:
+            - leads
+        command: '--requirepass ${REDIS_PASSWORD}'
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+            retries: 3
+            timeout: 5s
+
+volumes:
+    mariadb-volume:
+        driver: local
+    redis-volume:
+        driver: local
 
 networks:
     leads:
         driver: bridge
-    dev-db-stack:
-        name: dev-db-stack
-        external: true
