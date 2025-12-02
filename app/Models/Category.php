@@ -11,9 +11,11 @@ class Category extends Model
 {
     use Uuid;
 
+    public $timestamps = false;
+
     protected $fillable = [
         'user_id',
-        'title',
+        'name',
     ];
 
     /**
