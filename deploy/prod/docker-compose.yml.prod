@@ -79,7 +79,6 @@ services:
             - 'redis-volume:/data'
         networks:
             - leads
-        command: '--requirepass ${REDIS_PASSWORD}'
         healthcheck:
             test:
                 - CMD
