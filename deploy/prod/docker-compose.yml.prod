@@ -33,7 +33,7 @@ services:
 
     supervisor:
         container_name: supervisor
-        image: axiora.back.app
+        image: test-leads.app
         restart: unless-stopped
         depends_on:
             - mariadb
