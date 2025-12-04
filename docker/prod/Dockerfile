@@ -37,8 +37,9 @@ COPY php.ini "$PHP_INI_DIR/conf.d/app.ini"
 
 # Add user for Ubuntu www-data
 RUN addgroup -S -g 33 php-app
-RUN adduser -S -D -H -u 33 -s /sbin/nologin -h /home/php-app -G php-app php-app
+RUN adduser -S -D -H -u 33 -s /sbin/nologin -h /home/www-data -G php-app php-app
 RUN adduser php-app www-data
+RUN chmod 0775 /home/www-data
 
 # Add scheduler setting
 COPY scheduler /etc/cron.d/scheduler 

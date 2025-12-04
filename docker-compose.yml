@@ -20,6 +20,9 @@ services:
         build:
             context: ./docker/local
             dockerfile: Dockerfile
+            args:
+              WWW_GROUP_ID: '$WWWGROUP'
+              WWW_USER_ID: '$WWWUSER'
         image: test-leads/app
         restart: unless-stopped
         volumes:
